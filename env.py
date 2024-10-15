@@ -1,15 +1,25 @@
 import pygame
 import math
+import time
 
 class Vehicle:
-  def __init__(self, color, half_width, half_height, origin, angle):
+  def __init__(self, color, half_width, half_height, origin, angle, speed=60, count=0, last_update_time=None):
     self.color = color
     self.half_width = half_width
     self.half_height = half_height
     self.origin = origin
     self.angle = angle
+    self.speed = speed
+    self.count = count
+    self.last_update_time = last_update_time
   
-  def get_transformed_points(self, x, y, cosx, sinx):
+  def get_transformed_points(self, x, y, theta=None):
+        if theta == None:
+          theta = self.angle
+        
+        angle_rad = math.radians(theta)
+        cosx, sinx = math.cos(angle_rad), math.sin(angle_rad)
+    
         w_c, w_s = cosx * self.half_width, sinx * self.half_width
         h_c, h_s = cosx * self.half_height, sinx * self.half_height
         
@@ -20,11 +30,56 @@ class Vehicle:
             (x - w_c - h_s, y - w_s + h_c)
         ]
   
-  def draw(self):
-    angle_rad = math.radians(self.angle)
-    cosx, sinx = math.cos(angle_rad), math.sin(angle_rad)
+  def get_coordinates(self):
+    return self.get_transformed_points(self.origin['x'], self.origin['y'])
+  
+  def accelerate(self):
+    print(self.speed)
+    if (self.count < 5):
+      self.count +=1
+    if self.last_update_time == None:
+      last_update_time = time.time()
+      self.speed += self.count
+      self.speed = min(200, self.speed)
+      self.count = 0
+      return
+
+    cur_time = time.time()
     
-    rect = self.get_transformed_points(self.origin['x'], self.origin['y'], cosx, sinx)
+    if (self.last_update_time - cur_time >= 1):
+      last_update_time = time.time()
+      self.speed += self.count
+      self.speed = min(200, self.speed)
+      self.count = 0
+
+  def check_collisions(self, rect=None):
+    
+    if rect == None:
+      rect = self.get_coordinates()
+    
+    if (collide_rect_line(rect, (0,250), (screen.get_width(), 250)) or\
+      collide_rect_line(rect, (0, 430), (3*screen.get_width()/4, 430)) or\
+      collide_rect_line(rect, (3*screen.get_width()/4, 430), (5*screen.get_width()/6, 340)) or\
+      collide_rect_line(rect, (5*screen.get_width()/6, 340), (screen.get_width(), 340))):
+      return True
+    for v in vehicles:
+      if v == self:
+        continue
+      rect_temp = v.get_coordinates()
+      
+      if (collide_rect_rect(rect, rect_temp)):
+        return True
+    
+    return False
+    
+  def out_of_screen(self):
+    rect = self.get_coordinates()
+    min_x = min(point[0] for point in rect)
+    return (min_x > 1280)
+  
+  def draw(self):
+    
+    rect = self.get_coordinates()
     
     pygame.draw.polygon(screen, self.color, rect, 0)
     pygame.draw.line(screen, 'black', rect[0], rect[1], 1)
@@ -33,13 +88,13 @@ class Vehicle:
     
     angle_rad = math.radians(self.angle)
     cosx, sinx = math.cos(angle_rad), math.sin(angle_rad)
-    new_x = self.origin['x'] + direction * 150 * cosx * dt
-    new_y = self.origin['y'] + direction * 150 * sinx * dt
     
-    rect = self.get_transformed_points(new_x, new_y, cosx, sinx)
+    new_x = self.origin['x'] + direction * self.speed * cosx * dt
+    new_y = self.origin['y'] + direction * self.speed * sinx * dt
     
-    if not (collide_rect_line(rect, (0,(screen.get_height())/4), (screen.get_width(), (screen.get_height())/4)) or\
-      collide_rect_line(rect, (0,(3*screen.get_height())/4), (screen.get_width(), (3 * screen.get_height())/4))):
+    rect = self.get_transformed_points(new_x, new_y)
+    
+    if not (self.check_collisions(rect)):
       self.origin['x'] = new_x
       self.origin['y'] = new_y
     
@@ -47,11 +102,9 @@ class Vehicle:
     new_angle = self.angle + direction
     if -40 <= new_angle <= 40:
       angle_rad = math.radians(new_angle)
-      cosx, sinx = math.cos(angle_rad), math.sin(angle_rad)
-      rect = self.get_transformed_points(self.origin['x'], self.origin['y'], cosx, sinx)
+      rect = self.get_transformed_points(self.origin['x'], self.origin['y'], new_angle)
       
-      if not (collide_rect_line(rect, (0,(screen.get_height())/4), (screen.get_width(), (screen.get_height())/4)) or\
-        collide_rect_line(rect, (0,(3*screen.get_height())/4), (screen.get_width(), (3 * screen.get_height())/4))):
+      if not (self.check_collisions(rect)):
         self.angle = new_angle
 
 def collide_line_line(p1, p2, q1, q2):
@@ -68,6 +121,12 @@ def collide_rect_line(rect, p1, p2):
     collide_line_line(rect[2], rect[3], p1, p2) or\
     collide_line_line(rect[3], rect[0], p1, p2))
 
+def collide_rect_rect(rect1, rect2):
+  return (collide_rect_line(rect1, rect2[0], rect2[1]) or\
+    collide_rect_line(rect1, rect2[1], rect2[2]) or\
+    collide_rect_line(rect1, rect2[2], rect2[3]) or\
+    collide_rect_line(rect1, rect2[3], rect2[0]))
+
 # pygame setup
 pygame.init()
 screen = pygame.display.set_mode((1280, 720))
@@ -76,7 +135,12 @@ running = True
 dt = 0
 bg = 'gray'
 
-v1 = Vehicle('red', 50, 25, {'x':600, 'y':400}, 0)
+vehicles = []
+
+v1 = Vehicle('red', 50, 25, {'x':600, 'y':385}, 0)
+v2 = Vehicle('blue', 50, 25, {'x':300, 'y':295}, 0)
+
+vehicles.extend([v1, v2])
 
 while running:
   
@@ -87,19 +151,29 @@ while running:
             running = False
   
   keys = pygame.key.get_pressed()
-  if keys[pygame.K_UP]:
-    v1.move(1)
-  if keys[pygame.K_DOWN]:
-    v1.move(-1)
   if keys[pygame.K_RIGHT]:
     v1.turn(1)
   if keys[pygame.K_LEFT]:
     v1.turn(-1)
+  if keys[pygame.K_r]:
+    v1.accelerate()
+    
+  v2.move(1)
+  v1.move(1)
   
-  pygame.draw.line(screen,"white",(0,(screen.get_height())/4), (screen.get_width(), (screen.get_height())/4), 1)
-  pygame.draw.line(screen,"white",(0,(3 * screen.get_height())/4), (screen.get_width(), (3*screen.get_height())/4), 1)
+  pygame.draw.line(screen,"white",(0, 250), (screen.get_width(), 250), 1)
+  pygame.draw.line(screen,"white",(0, 430), (3*screen.get_width()/4, 430), 1)
+  pygame.draw.line(screen,"white",(3*screen.get_width()/4, 430), (5*screen.get_width()/6, 340), 1)
+  pygame.draw.line(screen,"white",(5*screen.get_width()/6, 340), (screen.get_width(), 340), 1)
+  
+  for v in vehicles:
+    if v.out_of_screen():
+      print(vehicles)
+      vehicles.remove(v)
+      print(vehicles)
   
   v1.draw()
+  v2.draw()
   
   # flip() the display to put your work on screen
   pygame.display.flip()
