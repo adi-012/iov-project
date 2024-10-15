@@ -33,14 +33,16 @@ class Vehicle:
   def get_coordinates(self):
     return self.get_transformed_points(self.origin['x'], self.origin['y'])
   
-  def accelerate(self):
-    print(self.speed)
-    if (self.count < 5):
+  def accelerate(self, direction):
+    if (self.count < 5 and direction > 0):
       self.count +=1
+    elif (self.count > -5 and direction < 0):
+      self.count -=1
+
     if self.last_update_time == None:
       last_update_time = time.time()
       self.speed += self.count
-      self.speed = min(200, self.speed)
+      self.speed = max(min(200, self.speed), 0)
       self.count = 0
       return
 
@@ -49,7 +51,7 @@ class Vehicle:
     if (self.last_update_time - cur_time >= 1):
       last_update_time = time.time()
       self.speed += self.count
-      self.speed = min(200, self.speed)
+      self.speed = max(min(200, self.speed), 0)
       self.count = 0
 
   def check_collisions(self, rect=None):
@@ -155,8 +157,10 @@ while running:
     v1.turn(1)
   if keys[pygame.K_LEFT]:
     v1.turn(-1)
-  if keys[pygame.K_r]:
-    v1.accelerate()
+  if keys[pygame.K_UP]:
+    v1.accelerate(1)
+  if keys[pygame.K_DOWN]:
+    v1.accelerate(-1)
     
   v2.move(1)
   v1.move(1)
