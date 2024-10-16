@@ -11,12 +11,11 @@ import pygame as pg
 # # Check the environment
 # check_env(create_env())
 
-# Create vectorized environment
-env = gym.make('lane-merging-v0', render_mode="human")
+env = gym.make('lane-merging-v0', render_mode=None)
 
 # Create and train the model
 model = PPO("MlpPolicy", env, verbose=1)
-model.learn(total_timesteps= 10000, reset_num_timesteps=False, progress_bar=True)
+model.learn(total_timesteps= 500000, reset_num_timesteps=False, progress_bar=True)
 # Custom training loop
 # total_timesteps = 10_000
 # obs = env.reset()
@@ -48,26 +47,23 @@ model.save("ppo_vehicle_model")
 # Close the environment
 env.close()
 
+env = gym.make('lane-merging-v0', render_mode = "human")
+obs, _ = env.reset()
 
-env = gym.make('lane-merging-v0', render_mode="human")
-obs = env.reset()
-
-for _ in range(1000):    
-    obs = env.reset()
+for _ in range(5):    
+    obs, _ = env.reset()
     done = False
     total_reward = 0
 
     while not done:
         action, _ = model.predict(obs, deterministic=False)  # Use the model to predict the action
-        obs, reward, done, _ = env.step(action)
+        obs, reward, done, truncated, _ = env.step(action)
         total_reward += reward
         env.render()
+        done = done or truncated
 
-    if done.any():
-        obs = env.reset()
 
 env.close()
-pg.quit()
 
 # import gymnasium as gym
 # import sys

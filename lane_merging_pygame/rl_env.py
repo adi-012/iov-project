@@ -11,6 +11,7 @@ register(
     entry_point='rl_env:VehicleEnv', # module_name:class_name
 )
 class VehicleEnv(gym.Env):
+    metadata = {"render_modes" : ["human"], "render_fps" : 4}
     def __init__(self, render_mode=None):
         super(VehicleEnv, self).__init__()
 
@@ -40,8 +41,6 @@ class VehicleEnv(gym.Env):
         gd.v1.last_update_time = None
         gd.v1.timestamp = time.time()
 
-        self.render()
-
         return self._get_obs(), {'status' : 'reset'}
 
     def step(self, action):
@@ -61,7 +60,6 @@ class VehicleEnv(gym.Env):
         self.done = gd.v1.out_of_screen() or collided
         self.truncated = (time.time() - gd.v1.timestamp) > 60
 
-        self.render()
 
         return obs, reward, self.done, self.truncated, {"status" : "step_success"}
 
