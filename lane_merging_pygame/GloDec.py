@@ -4,8 +4,8 @@ from vehicle import Vehicle
 WIDTH = 1280
 HEIGHT = 720
 
-screen = pg.display.set_mode((WIDTH, HEIGHT))
-clock = pg.time.Clock()
+screen = None
+clock = None
 dt = 0
 bg = 'gray'
 

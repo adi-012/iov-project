@@ -97,10 +97,10 @@ class Vehicle:
         if rect == None:
             rect = self.get_coordinates()
 
-        if (self._collide_rect_line(rect, (0,250), (gd.screen.get_width(), 250)) or\
-            self._collide_rect_line(rect, (0, 430), (3*gd.screen.get_width()/4, 430)) or\
-            self._collide_rect_line(rect, (3*gd.screen.get_width()/4, 430), (5*gd.screen.get_width()/6, 340)) or\
-            self._collide_rect_line(rect, (5*gd.screen.get_width()/6, 340), (gd.screen.get_width(), 340))):
+        if (self._collide_rect_line(rect, (0,250), (gd.WIDTH, 250)) or\
+            self._collide_rect_line(rect, (0, 430), (3*gd.WIDTH/4, 430)) or\
+            self._collide_rect_line(rect, (3*gd.WIDTH/4, 430), (5*gd.WIDTH/6, 340)) or\
+            self._collide_rect_line(rect, (5*gd.WIDTH/6, 340), (gd.WIDTH, 340))):
             return True
         
         for v in gd.vehicles:
