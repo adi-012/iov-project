@@ -3,6 +3,8 @@ import GloDec as gd
 
 def run():
     pg.init()
+    gd.screen = pg.display.set_mode((gd.WIDTH, gd.HEIGHT))
+    gd.clock = pg.time.Clock()
 
     while gd.running and len(gd.vehicles) > 0:
     
@@ -22,16 +24,16 @@ def run():
         if keys[pg.K_DOWN]:
             gd.v1.decelerate()
 
-        # if keys[pg.K_d]:
-        #     gd.v2.turn(1)
-        # if keys[pg.K_a]:
-        #     gd.v2.turn(-1)
-        # if keys[pg.K_w]:
-        #     gd.v2.accelerate()
-        # if keys[pg.K_s]:
-        #     gd.v2.decelerate()
+        if keys[pg.K_d]:
+            gd.v2.turn(1)
+        if keys[pg.K_a]:
+            gd.v2.turn(-1)
+        if keys[pg.K_w]:
+            gd.v2.accelerate()
+        if keys[pg.K_s]:
+            gd.v2.decelerate()
 
-        # gd.v2.move(1)
+        gd.v2.move(1)
         gd.v1.move(1)
 
         pg.draw.line(gd.screen,"white",(0, 250), (gd.screen.get_width(), 250), 1)
@@ -49,7 +51,7 @@ def run():
 
 
         gd.v1.draw()
-        # gd.v2.draw()
+        gd.v2.draw()
 
         # flip() the display to put your work on screen
         pg.display.flip()

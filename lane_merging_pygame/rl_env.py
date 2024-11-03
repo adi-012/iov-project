@@ -7,17 +7,19 @@ import time
 from gymnasium.envs.registration import register
 
 register(
-    id='lane-merging-v0',                                # call it whatever you want
-    entry_point='rl_env:VehicleEnv', # module_name:class_name
+    id='lane-merging-v0',                                
+    entry_point='rl_env:VehicleEnv',
 )
 class VehicleEnv(gym.Env):
-    metadata = {"render_modes" : ["human"], "render_fps" : 4}
+    metadata = {"render_modes" : ["human"], "render_fps" : 60}
     def __init__(self, render_mode=None):
         super(VehicleEnv, self).__init__()
 
+        self.granularity = 20
+
         self.action_space = spaces.Discrete(4)
-        self.observation_space = spaces.Box(low=np.array([0, 0, -40, 0]), 
-                                            high=np.array([1280, 720, 40, 200]), 
+        self.observation_space = spaces.Box(low=np.array([0 // self.granularity, 0 // self.granularity, -40, 0]), 
+                                            high=np.array([1280 // self.granularity, 720 // self.granularity, 40, 200]), 
                                             dtype=np.int32)
         
         self.render_mode = render_mode        
@@ -60,18 +62,19 @@ class VehicleEnv(gym.Env):
         self.done = gd.v1.out_of_screen() or collided
         self.truncated = (time.time() - gd.v1.timestamp) > 60
 
+        self.render()
 
         return obs, reward, self.done, self.truncated, {"status" : "step_success"}
 
     def _get_obs(self):
-        return np.array([gd.v1.origin['x'], gd.v1.origin['y'], gd.v1.angle, gd.v1.speed], dtype=np.int32)
+        return np.array([gd.v1.origin['x'] // self.granularity, gd.v1.origin['y'] // self.granularity, gd.v1.angle, gd.v1.speed], dtype=np.int32)
 
     def _get_reward(self, collided):
         if gd.v1.out_of_screen():
             return 100 / gd.v1.timestamp
         if collided:
-            return -1000
-        return -1
+            return -100
+        return -2
 
     def render(self):
         if self.render_mode == "human":
