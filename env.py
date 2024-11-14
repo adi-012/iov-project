@@ -3,15 +3,18 @@ import math
 import time
 
 class Vehicle:
-  def __init__(self, color, half_width, half_height, origin, angle, speed=60, count=0, last_update_time=None):
+  def __init__(self, color, half_width, half_height, origin, speed=80):
     self.color = color
     self.half_width = half_width
     self.half_height = half_height
     self.origin = origin
-    self.angle = angle
     self.speed = speed
-    self.count = count
-    self.last_update_time = last_update_time
+    self.angle = 0
+    self.count = 0
+    self.target_speed = speed
+    self.done = False
+    self.is_post_merge = False
+    self.last_update_time = time.time()
   
   def get_transformed_points(self, x, y, theta=None):
         if theta == None:
@@ -32,26 +35,45 @@ class Vehicle:
   
   def get_coordinates(self):
     return self.get_transformed_points(self.origin['x'], self.origin['y'])
+    
+  def get_lane(self):
+    y_min = min(y[1] for y in self.get_coordinates())
+    if y_min <= 330:
+      return 1
+    else:
+      return 2
+    
+  def is_in_merge_zone(self):
+    
+    points = self.get_coordinates()
+    x_min = min(x[0] for x in points)
+    
+    if self.origin['x'] > 400 and x_min < 5 * screen.get_width() / 6:
+      return True
+      
+  def time_to_merge(self):
+    distance = 750 - self.origin['x']
+    return distance / self.speed if self.speed > 0 else float('inf')
   
-  def accelerate(self, direction):
-    if (self.count < 5 and direction > 0):
-      self.count +=1
-    elif (self.count > -5 and direction < 0):
-      self.count -=1
+  def is_past_merge(self):
+    points = self.get_coordinates()
+    x_min = min(x[0] for x in points)
+    return x_min > 5 * screen.get_width()/6
 
-    if self.last_update_time == None:
-      last_update_time = time.time()
-      self.speed += self.count
-      self.speed = max(min(200, self.speed), 0)
-      self.count = 0
-      return
+  def accelerate(self, direction):
+    if (self.count < 10 and direction > 0):
+      self.count +=1
+    elif (self.count > -10 and direction < 0):
+      self.count -=1
 
     cur_time = time.time()
     
-    if (self.last_update_time - cur_time >= 1):
-      last_update_time = time.time()
+    if (cur_time - self.last_update_time >= 1):
+      self.last_update_time = time.time()
       self.speed += self.count
       self.speed = max(min(200, self.speed), 0)
+      if abs(self.speed - self.target_speed) < 10:
+        self.speed = self.target_speed
       self.count = 0
 
   def check_collisions(self, rect=None):
@@ -128,6 +150,17 @@ def collide_rect_rect(rect1, rect2):
     collide_rect_line(rect1, rect2[1], rect2[2]) or\
     collide_rect_line(rect1, rect2[2], rect2[3]) or\
     collide_rect_line(rect1, rect2[3], rect2[0]))
+  
+
+def manage_traffic(vehicles):
+    # Sort vehicles by x position to help determine order
+    # sorted_vehicles = sorted(vehicles, key=lambda v: v.origin['x'], reverse=True)
+    
+    for v in vehicles:
+      if v.is_in_merge_zone():
+        v.target_speed = 80
+      if v.is_past_merge():
+        v.is_post_merge = True
 
 # pygame setup
 pygame.init()
@@ -139,12 +172,14 @@ bg = 'gray'
 
 vehicles = []
 
-v1 = Vehicle('red', 50, 25, {'x':600, 'y':385}, 0)
-v2 = Vehicle('blue', 50, 25, {'x':300, 'y':295}, 0)
+v1 = Vehicle('red', 50, 25, {'x':600, 'y':385}, 60)
+v2 = Vehicle('blue', 50, 25, {'x':300, 'y':295}, 120)
 
 vehicles.extend([v1, v2])
 
 while running:
+  
+  manage_traffic(vehicles)
   
   screen.fill(bg)
   
@@ -162,8 +197,24 @@ while running:
   if keys[pygame.K_DOWN]:
     v1.accelerate(-1)
     
-  v2.move(1)
   v1.move(1)
+  v2.move(1)
+    
+  for v in vehicles:
+    if v.speed < v.target_speed:
+      v.accelerate(1)
+    elif v.speed > v.target_speed:
+      v.accelerate(-1)
+  
+  min_y = min(x[1] for x in v1.get_coordinates())
+  
+  if (v1.origin['x'] > 800 and min_y > 320):
+    v1.turn(-1)
+  
+  if (min_y < 275):
+    if v1.angle != 0:
+      v1.turn(1)
+  
   
   pygame.draw.line(screen,"white",(0, 250), (screen.get_width(), 250), 1)
   pygame.draw.line(screen,"white",(0, 430), (3*screen.get_width()/4, 430), 1)
@@ -172,9 +223,7 @@ while running:
   
   for v in vehicles:
     if v.out_of_screen():
-      print(vehicles)
       vehicles.remove(v)
-      print(vehicles)
   
   v1.draw()
   v2.draw()
@@ -185,6 +234,6 @@ while running:
   # limits FPS to 60
   # dt is delta time in seconds since last frame, used for framerate-
   # independent physics.
-  dt = clock.tick(60) / 1000
+  dt = clock.tick(20) / 1000
 
 pygame.quit()
