@@ -126,7 +126,7 @@ class VehicleTrainer:
 def main():
     trainer = VehicleTrainer()
     
-    trainer.train(total_timesteps=50000)
+    trainer.train(total_timesteps=200000)
     
     trainer.evaluate(n_episodes=10, render=True)
 

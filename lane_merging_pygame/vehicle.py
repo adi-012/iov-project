@@ -2,6 +2,7 @@ import pygame
 import math
 import time
 import GloDec as gd
+import numpy as np
 
 class Vehicle:
     def __init__(self, color, half_width, half_height, origin, angle, speed=60, count=0, last_update_time=None):
@@ -14,6 +15,7 @@ class Vehicle:
         self.count = count
         self.last_update_time = last_update_time
         self.timestamp = time.time()
+        self.ft = time.time()
 
     def get_transformed_points(self, x, y, theta=None):
         if theta == None:
@@ -123,10 +125,106 @@ class Vehicle:
             return True;
         else:
             return False
-        
-    def draw(self):
+    
+    def draw_safety_line_horizontal(self, direction):
+        dist = 100
+        tanx = math.tan(math.radians(self.angle))
+        side = ((1 + direction) * self.angle + (1 - direction) * (180 - self.angle)) / 2
+        cosx = math.cos(math.radians(side))
+        c = self.origin['y'] - tanx * self.origin['x']
+        x = dist * cosx + self.origin['x']
+        y = tanx * x + c
+        pygame.draw.line(gd.screen, 'red', (self.origin['x'], self.origin['y']), (x, y))
+
+    def safety_distance(self):       
+        segments = [
+            ((0, 250), (gd.WIDTH, 250)),
+            ((0, 430), (3*gd.WIDTH/4, 430)),
+            ((3*gd.WIDTH/4, 430), (5*gd.WIDTH/6, 340)),
+            ((5*gd.WIDTH/6, 340), (gd.WIDTH, 340))
+        ]
+        for v in gd.vehicles:
+            if v == self:
+                continue
+            
+            rect_temp = v.get_coordinates()
+
+            segments.extend([
+                (rect_temp[0], rect_temp[1]),
+                (rect_temp[0], rect_temp[3]),
+                (rect_temp[2], rect_temp[3]),
+                (rect_temp[2], rect_temp[1])
+            ])
 
         rect = self.get_coordinates()
+        mids = []
+        safety_distances = []
+
+        for i in range(4):
+            x1, y1 = rect[i]
+            x2, y2 = rect[(i + 1) % 4]
+
+            midx = (x1 + x2) / 2
+            midy = (y1 + y2) / 2
+            mids.append((midx, midy))
+
+        for P in mids :
+            min_dist = 50
+            for (start, end) in segments:
+                dist = self._distance_point_to_segment(P, start, end)
+                min_dist = min(dist, min_dist)
+            
+            safety_distances.append(math.floor(min_dist))
+
+        for P in rect :
+            min_dist = 50
+            for (start, end) in segments:
+                dist = self._distance_point_to_segment(P, start, end)
+                min_dist = min(dist, min_dist)
+            
+            safety_distances.append(math.floor(min_dist))
+
+
+        return safety_distances
+
+
+
+
+    def _distance_point_to_segment(self, P, A, B):
+        # Convert points to numpy arrays for vector calculations
+        P, A, B = np.array(P), np.array(A), np.array(B)
+        
+        # Vector from A to B and from A to P
+        AB = B - A
+        AP = P - A
+        BP = P - B
+        
+        # Project point P onto the line defined by A and B, compute projection parameter
+        AB_norm_sq = np.dot(AB, AB)  # Squared length of AB
+        if AB_norm_sq == 0:
+            return np.linalg.norm(AP)  # A and B are the same point
+        
+        # Projection parameter (t) calculation
+        t = np.dot(AP, AB) / AB_norm_sq
+        
+        # Clamp t to the [0, 1] range to stay within the segment
+        t = max(0, min(1, t))
+        
+        # Calculate the closest point on the segment to P
+        closest_point = A + t * AB
+        
+        # Distance from P to the closest point
+        return np.linalg.norm(P - closest_point)
+
+
+    def draw(self):
+        rect = self.get_coordinates()
+        # self.draw_safety_line_horizontal(1)
+        # self.draw_safety_line_horizontal(-1)
+    
+        if time.time() - self.ft > 2:
+            self.safety_distance()
+            self.ft = time.time()
 
         pygame.draw.polygon(gd.screen, self.color, rect, 0)
         pygame.draw.line(gd.screen, 'black', rect[0], rect[1], 1)
@@ -137,6 +235,8 @@ class Vehicle:
 
         new_x = self.origin['x'] + direction * self.speed * cosx * gd.dt
         new_y = self.origin['y'] + direction * self.speed * sinx * gd.dt
+        # print("time = ", gd.dt)
+        # print("time.time = ", time.time())
 
         rect = self.get_transformed_points(new_x, new_y)
 
